@@ -10,7 +10,6 @@ BezierCurve.__index = BezierCurve
 BezierCurve.__type = "BezierCurve"
 
 --[=[
-	@within BezierCurve
 	@type HandleType
 	베지어 핸들을 자동 계산할 때 사용하는 규칙 이름입니다.
 	- Auto: 양쪽 기울기를 일정하게 맞춰 자연스럽게 이어집니다.
@@ -23,13 +22,11 @@ export type HandleType = "Auto" | "AutoClamped" | "Vector" | "Free" | "Aligned"
 
 --[=[
 	@interface Handle
-	@within BezierCurve
 	베지어 곡선의 핸들을 표현합니다. Time은 시간 축, Value는 값 축입니다.
 ]=]
 export type Handle = { Time: number, Value: number }
 --[=[
 	@interface Keyframe
-	@within BezierCurve
 	
 	베지어 곡선을 구성하는 완전한 키프레임입니다.
 	
@@ -41,7 +38,6 @@ export type Handle = { Time: number, Value: number }
 export type Keyframe = { Time: number, Value: number, HandleIn: Handle, HandleOut: Handle }
 --[=[
 	@interface PartialKeyframe
-	@within BezierCurve
 	
 	핸들이 비어 있을 수 있는 키프레임입니다. [BezierCurve.FillKeyframeHandles]로 보정됩니다.
 	
@@ -67,7 +63,13 @@ local function cubicBezier(u: number, p0: number, p1: number, p2: number, p3: nu
 	return (mu2 * mu) * p0 + 3 * (mu2 * u) * p1 + 3 * (mu * u2) * p2 + (u2 * u) * p3
 end
 
-local function cubicBezierDerivative(u: number, p0: number, p1: number, p2: number, p3: number): number
+local function cubicBezierDerivative(
+	u: number,
+	p0: number,
+	p1: number,
+	p2: number,
+	p3: number
+): number
 	local mu = 1 - u
 	return 3 * ((p1 - p0) * mu * mu + 2 * (p2 - p1) * mu * u + (p3 - p2) * u * u)
 end
@@ -94,15 +96,6 @@ export type BezierCurve = typeof(setmetatable(
 	BezierCurve
 ))
 
-local function cloneTable<T>(src: { T }): { T }
-	local dst = {}
-	for i, v in ipairs(src) do
-		dst[i] = v
-	end
-	return dst
-end
-
---#region Constructors
 --[=[
 	정렬된 Keyframe 배열로 BezierCurve 인스턴스를 생성합니다.
 	
@@ -113,7 +106,7 @@ function BezierCurve.fromKeyframes(keyframes: { Keyframe }): BezierCurve
 	assert(#keyframes > 0, "BezierCurve requires at least one keyframe")
 
 	-- 시간 순으로 정렬 & 중복 검사
-	local kfs = cloneTable(keyframes)
+	local kfs = table.clone(keyframes)
 	table.sort(kfs, function(a, b)
 		return a.Time < b.Time
 	end)
@@ -162,7 +155,6 @@ local function findSegmentIndex(self: BezierCurve, t: number): number
 	return self._lastIndex
 end
 
---#region Methods
 --[=[
 	주어진 시간에서 3차 베지어 보간 값을 계산합니다.
 	
@@ -199,11 +191,13 @@ function BezierCurve:GetValueAtTime(t: number): number
 		end
 	end
 	-- Newton 실패 시 de Casteljau 분할
-	if math.abs(cubicBezier(u, k0.Time, k0.HandleOut.Time, k1.HandleIn.Time, k1.Time) - t) > 1e-4 then
+	if
+		math.abs(cubicBezier(u, k0.Time, k0.HandleOut.Time, k1.HandleIn.Time, k1.Time) - t) > 1e-4
+	then
 		u = deCasteljauSolve(t, k0.Time, k0.HandleOut.Time, k1.HandleIn.Time, k1.Time)
 	end
 
-	-- Evaluate y ---------------------------------------------------------------
+	-- Evaluate y
 	return cubicBezier(u, k0.Value, k0.HandleOut.Value, k1.HandleIn.Value, k1.Value)
 end
 
@@ -240,8 +234,6 @@ local function alignHandles(pk: PartialKeyframe, hIn: Handle, hOut: Handle)
 	hOut.Value = pk.Value + dy
 end
 
---#region Functions
-
 --[=[
 	PartialKeyframe 배열을 HandleType 규칙에 따라 보정해 완전한 Keyframe 목록으로 변환합니다.
 	@param pks {PartialKeyframe} -- 보정할 키프레임 목록.
@@ -255,7 +247,7 @@ function BezierCurve.FillKeyframeHandles(pks: { PartialKeyframe }): { Keyframe }
 		local inT, outT = pk.HandleTypeIn or "Auto", pk.HandleTypeOut or "Auto"
 		local hIn, hOut = pk.HandleIn, pk.HandleOut
 
-		-- Out handle -----------------------------------------------------------
+		-- Out handle
 		if not hOut then
 			if outT == "Auto" or outT == "Aligned" then
 				hOut = createAutoHandle(pks, i, false, false)
@@ -263,13 +255,16 @@ function BezierCurve.FillKeyframeHandles(pks: { PartialKeyframe }): { Keyframe }
 				hOut = createAutoHandle(pks, i, false, true)
 			elseif outT == "Vector" then
 				local nxt = pks[i + 1] or pk
-				hOut = { Time = pk.Time + (nxt.Time - pk.Time) / 3, Value = pk.Value + (nxt.Value - pk.Value) / 3 }
+				hOut = {
+					Time = pk.Time + (nxt.Time - pk.Time) / 3,
+					Value = pk.Value + (nxt.Value - pk.Value) / 3,
+				}
 			else -- Free
 				hOut = { Time = pk.Time, Value = pk.Value }
 			end
 		end
 
-		-- In handle ------------------------------------------------------------
+		-- In handle
 		if not hIn then
 			if inT == "Auto" or inT == "Aligned" then
 				hIn = createAutoHandle(pks, i, true, false)
@@ -277,7 +272,10 @@ function BezierCurve.FillKeyframeHandles(pks: { PartialKeyframe }): { Keyframe }
 				hIn = createAutoHandle(pks, i, true, true)
 			elseif inT == "Vector" then
 				local prv = pks[i - 1] or pk
-				hIn = { Time = pk.Time - (pk.Time - prv.Time) / 3, Value = pk.Value - (pk.Value - prv.Value) / 3 }
+				hIn = {
+					Time = pk.Time - (pk.Time - prv.Time) / 3,
+					Value = pk.Value - (pk.Value - prv.Value) / 3,
+				}
 			else -- Free
 				hIn = { Time = pk.Time, Value = pk.Value }
 			end
