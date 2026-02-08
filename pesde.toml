@@ -1,5 +1,5 @@
 name = "story_bakery/bezier_curve"
-version = "0.1.0"
+version = "0.1.1"
 license = "MIT"
 includes = [
     "pesde.toml",
@@ -30,5 +30,5 @@ pesde = "^0.7.0"
 lune = "^0.10.2"
 
 [dev_dependencies]
-setup-project-configs = { repo = "https://github.com/StoryBakery/setup-project-configs", rev = "8e77c9722c25b0a4ea6ed1415ab18fc8db2ff9e2" }
-pesde-gitrev = { repo = "https://github.com/StoryBakery/pesde-gitrev", rev = "a2d6f1e71ac6264ff2b48fd2178271f80135772e" }
+setup-project-configs = { repo = "https://github.com/StoryBakery/setup-project-configs", rev = "0ba9379f8709c3e846ae04180fd8fba854ed52ae" }
+pesde-gitrev = { repo = "https://github.com/StoryBakery/pesde-gitrev", rev = "720daa5342f214c4ee53c978e56daae5884199a2" }
